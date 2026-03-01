@@ -6,6 +6,10 @@ class PlayerManager {
         this.minecraftClients = new Map();
         this.players = new Map();
         this.chatLogs = new Map();
+        this.playerIdToName = new Map();
+        this.wsToPlayerId = new Map();
+        this.nextPlayerId = 1;
+        this.availableIds = [];
         this.MAX_LOGS = 25;
     }
 
@@ -19,32 +23,63 @@ class PlayerManager {
         console.log(`Web client disconnected. Total: ${this.webClients.size}`);
     }
 
+    generatePlayerId() {
+        if (this.availableIds.length > 0) {
+            return this.availableIds.shift();
+        }
+        return this.nextPlayerId++;
+    }
+
     registerPlayer(name, ws, data) {
-        this.minecraftClients.set(name, ws);
-        this.players.set(name, {
+        let playerId = this.wsToPlayerId.get(ws);
+        
+        if (!playerId) {
+            playerId = this.generatePlayerId();
+            this.wsToPlayerId.set(ws, playerId);
+        }
+
+        this.minecraftClients.set(playerId, ws);
+        this.players.set(playerId, {
+            name: name,
             connected: true,
             timestamp: Date.now(),
             serverIp: data.serverIp || '',
             online: data.online === true
         });
-        console.log(`Player registered: ${name} (online: ${data.online}, server: ${data.serverIp})`);
+        this.playerIdToName.set(playerId, name);
+        console.log(`Player registered: ${name} (ID: ${playerId}, online: ${data.online}, server: ${data.serverIp})`);
         this.broadcastPlayerList();
     }
 
-    removePlayer(name) {
-        this.minecraftClients.delete(name);
-        this.players.delete(name);
-        this.chatLogs.delete(name);
-        console.log(`Player removed: ${name}`);
+    removePlayer(ws) {
+        const playerId = this.wsToPlayerId.get(ws);
+        if (!playerId) return;
+
+        const playerData = this.players.get(playerId);
+        const name = playerData ? playerData.name : playerId;
+        
+        this.minecraftClients.delete(playerId);
+        this.players.delete(playerId);
+        this.chatLogs.delete(playerId);
+        this.playerIdToName.delete(playerId);
+        this.wsToPlayerId.delete(ws);
+        
+        this.availableIds.push(playerId);
+        this.availableIds.sort((a, b) => a - b);
+        
+        console.log(`Player removed: ${name} (ID: ${playerId})`);
         this.broadcastPlayerList();
     }
 
-    addChatLog(playerName, message) {
-        if (!this.chatLogs.has(playerName)) {
-            this.chatLogs.set(playerName, []);
+    addChatLog(ws, message) {
+        const playerId = this.wsToPlayerId.get(ws);
+        if (!playerId) return;
+
+        if (!this.chatLogs.has(playerId)) {
+            this.chatLogs.set(playerId, []);
         }
 
-        const logs = this.chatLogs.get(playerName);
+        const logs = this.chatLogs.get(playerId);
         logs.push({
             message: message,
             timestamp: Date.now()
@@ -54,18 +89,21 @@ class PlayerManager {
             logs.shift();
         }
 
-        console.log(`Chat log added for ${playerName}: ${message} (total: ${logs.length})`);
+        const name = this.playerIdToName.get(playerId) || playerId;
+        console.log(`Chat log added for ${name} (ID: ${playerId}): ${message} (total: ${logs.length})`);
     }
 
-    getChatLogs(playerName) {
-        return this.chatLogs.get(playerName) || [];
+    getChatLogs(playerId) {
+        return this.chatLogs.get(playerId) || [];
     }
 
-    sendChatLogsToWeb(playerName) {
-        const logs = this.getChatLogs(playerName);
+    sendChatLogsToWeb(playerId) {
+        const logs = this.getChatLogs(playerId);
+        const playerData = this.players.get(playerId);
         const message = JSON.stringify({
             type: 'chatLogs',
-            player: playerName,
+            playerId: playerId,
+            player: playerData ? playerData.name : playerId,
             logs: logs
         });
 
@@ -78,7 +116,8 @@ class PlayerManager {
         });
 
         if (sent > 0) {
-            console.log(`Sent ${logs.length} chat logs for ${playerName} to ${sent} web clients`);
+            const name = playerData ? playerData.name : playerId;
+            console.log(`Sent ${logs.length} chat logs for ${name} (ID: ${playerId}) to ${sent} web clients`);
         }
     }
 
@@ -97,8 +136,9 @@ class PlayerManager {
     }
 
     sendPlayerList(ws) {
-        const playerList = Array.from(this.players.entries()).map(([name, data]) => ({
-            name: name,
+        const playerList = Array.from(this.players.entries()).map(([id, data]) => ({
+            id: id,
+            name: data.name,
             serverIp: data.serverIp || '',
             online: data.online === true
         }));
@@ -111,8 +151,9 @@ class PlayerManager {
     }
 
     broadcastPlayerList() {
-        const playerList = Array.from(this.players.entries()).map(([name, data]) => ({
-            name: name,
+        const playerList = Array.from(this.players.entries()).map(([id, data]) => ({
+            id: id,
+            name: data.name,
             serverIp: data.serverIp || '',
             online: data.online === true
         }));
@@ -132,10 +173,11 @@ class PlayerManager {
         console.log(`Broadcast player list to ${sent} web clients: ${playerList.length} players`);
     }
 
-    sendToMinecraft(playerName, action, data) {
-        const ws = this.minecraftClients.get(playerName);
+    sendToMinecraft(playerId, action, data) {
+        const ws = this.minecraftClients.get(playerId);
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            console.log(`Cannot send to ${playerName}: not connected`);
+            const name = this.playerIdToName.get(playerId) || playerId;
+            console.log(`Cannot send to ${name} (ID: ${playerId}): not connected`);
             return { success: false, message: 'Player not connected' };
         }
         try {
@@ -165,10 +207,12 @@ class PlayerManager {
             }
             
             ws.send(JSON.stringify(message));
-            console.log(`Sent action to ${playerName}: ${action}`, message);
+            const name = this.playerIdToName.get(playerId) || playerId;
+            console.log(`Sent action to ${name} (ID: ${playerId}): ${action}`, message);
             return { success: true };
         } catch (e) {
-            console.error(`Error sending to ${playerName}:`, e);
+            const name = this.playerIdToName.get(playerId) || playerId;
+            console.error(`Error sending to ${name} (ID: ${playerId}):`, e);
             return { success: false, message: e.message };
         }
     }

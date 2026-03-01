@@ -19,14 +19,12 @@ class WebSocketServer {
 
     handleConnection(ws) {
         let clientType = null;
-        let playerName = null;
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message);
-                this.handleMessage(ws, data, clientType, playerName, (type, name) => {
+                this.handleMessage(ws, data, clientType, (type) => {
                     clientType = type;
-                    playerName = name;
                 });
             } catch (e) {
                 console.error('Error parsing message:', e);
@@ -36,8 +34,8 @@ class WebSocketServer {
         ws.on('close', () => {
             if (clientType === 'web') {
                 this.playerManager.removeWebClient(ws);
-            } else if (clientType === 'minecraft' && playerName) {
-                this.playerManager.removePlayer(playerName);
+            } else if (clientType === 'minecraft') {
+                this.playerManager.removePlayer(ws);
             }
         });
 
@@ -46,15 +44,15 @@ class WebSocketServer {
         });
     }
 
-    handleMessage(ws, data, clientType, playerName, setClientInfo) {
+    handleMessage(ws, data, clientType, setClientInfo) {
         if (data.type === 'auth') {
-            setClientInfo('web', null);
+            setClientInfo('web');
             this.playerManager.addWebClient(ws);
             this.playerManager.sendPlayerList(ws);
         }
 
         if (data.type === 'register') {
-            setClientInfo('minecraft', data.player);
+            setClientInfo('minecraft');
             this.playerManager.registerPlayer(data.player, ws, {
                 online: data.online === true,
                 serverIp: data.serverIp || ''
@@ -66,12 +64,11 @@ class WebSocketServer {
         }
 
         if (data.type === 'chatLog') {
-            this.playerManager.addChatLog(data.player, data.message);
-            // Broadcastuj tylko do web clientów (nie z powrotem do moda)
+            this.playerManager.addChatLog(ws, data.message);
             const message = JSON.stringify(data);
             let sent = 0;
             this.playerManager.getWebClients().forEach(client => {
-                if (client.readyState === 1) { // WebSocket.OPEN
+                if (client.readyState === 1) {
                     client.send(message);
                     sent++;
                 }
@@ -82,11 +79,11 @@ class WebSocketServer {
         }
 
         if (data.type === 'getChatLogs') {
-            this.playerManager.sendChatLogsToWeb(data.player);
+            this.playerManager.sendChatLogsToWeb(data.playerId);
         }
 
         if (data.type === 'action') {
-            const result = this.playerManager.sendToMinecraft(data.player, data.action, data.data || {});
+            const result = this.playerManager.sendToMinecraft(data.playerId, data.action, data.data || {});
             ws.send(JSON.stringify({ 
                 type: 'actionResult', 
                 success: result.success,
