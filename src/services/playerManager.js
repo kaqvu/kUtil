@@ -38,6 +38,9 @@ class PlayerManager {
             this.wsToPlayerId.set(ws, playerId);
         }
 
+        const existingPlayer = this.players.get(playerId);
+        const nameChanged = existingPlayer && existingPlayer.name !== name;
+
         this.minecraftClients.set(playerId, ws);
         this.players.set(playerId, {
             name: name,
@@ -47,7 +50,13 @@ class PlayerManager {
             online: data.online === true
         });
         this.playerIdToName.set(playerId, name);
-        console.log(`Player registered: ${name} (ID: ${playerId}, online: ${data.online}, server: ${data.serverIp})`);
+        
+        if (nameChanged) {
+            console.log(`Player nickname changed: ${existingPlayer.name} -> ${name} (ID: ${playerId})`);
+        } else {
+            console.log(`Player registered: ${name} (ID: ${playerId}, online: ${data.online}, server: ${data.serverIp})`);
+        }
+        
         this.broadcastPlayerList();
     }
 
