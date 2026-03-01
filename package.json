@@ -1,8 +1,8 @@
 {
   "name": "kutil",
-  "version": "7.0",
+  "version": "7.1",
   "author": "kaqvu",
-  "license": "PRIVATE",
+  "license": "MIT",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
