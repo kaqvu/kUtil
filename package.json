@@ -1,0 +1,17 @@
+{
+  "name": "kutil",
+  "version": "7.0",
+  "author": "kaqvu",
+  "license": "PRIVATE",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
