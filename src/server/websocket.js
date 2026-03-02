@@ -60,10 +60,18 @@ class WebSocketServer {
         }
 
         if (data.type === 'playerInfo') {
+            const playerId = this.playerManager.getPlayerIdByWs(ws);
+            if (playerId) {
+                data.playerId = playerId;
+            }
             this.playerManager.broadcastToWeb(data);
         }
 
         if (data.type === 'chatLog') {
+            const playerId = this.playerManager.getPlayerIdByWs(ws);
+            if (playerId) {
+                data.playerId = playerId;
+            }
             this.playerManager.addChatLog(ws, data.message);
             const message = JSON.stringify(data);
             let sent = 0;

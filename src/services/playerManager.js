@@ -246,6 +246,10 @@ class PlayerManager {
     getWebClients() {
         return this.webClients;
     }
+
+    getPlayerIdByWs(ws) {
+        return this.wsToPlayerId.get(ws);
+    }
 }
 
 module.exports = PlayerManager;
