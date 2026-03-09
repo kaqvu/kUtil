@@ -59,6 +59,12 @@ class WebSocketServer {
             });
         }
 
+        if (data.type === 'reset') {
+            console.log('Reset request received');
+            this.playerManager.reset();
+            this.playerManager.broadcastPlayerList();
+        }
+
         if (data.type === 'playerInfo') {
             const playerId = this.playerManager.getPlayerIdByWs(ws);
             if (playerId) {

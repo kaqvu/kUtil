@@ -250,6 +250,18 @@ class PlayerManager {
     getPlayerIdByWs(ws) {
         return this.wsToPlayerId.get(ws);
     }
+    
+    reset() {
+        console.log('Resetting player manager...');
+        this.minecraftClients.clear();
+        this.players.clear();
+        this.chatLogs.clear();
+        this.playerIdToName.clear();
+        this.wsToPlayerId.clear();
+        this.nextPlayerId = 1;
+        this.availableIds = [];
+        console.log('Player manager reset complete');
+    }
 }
 
 module.exports = PlayerManager;
