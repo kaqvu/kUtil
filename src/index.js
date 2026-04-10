@@ -13,5 +13,5 @@ wsServer.initialize(server);
 server.listen(PORT, () => {
     console.log(`${APP_NAME} v${VERSION} by ${AUTHOR}`);
     console.log(`Server running on port ${PORT}`);
-    console.log(`WebSocket: wss://kutil.zawrot.pl`);
+    console.log(`WebSocket: wss://kutil.onrender.com/`);
 });
