@@ -1,6 +1,6 @@
 {
   "name": "kutil",
-  "version": "8.0",
+  "version": "26.4",
   "author": "kaqvu",
   "license": "MIT",
   "main": "src/index.js",
